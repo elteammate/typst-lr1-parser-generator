@@ -9,9 +9,9 @@ trait Terminal: Debug + Hash + Eq + Clone + Display {}
 
 trait NonTerminal: Debug + Hash + Eq + Clone + Display {}
 
-impl Terminal for &str {}
+impl Terminal for String {}
 
-impl NonTerminal for &str {}
+impl NonTerminal for String {}
 
 #[derive(Debug)]
 struct PureRef<'a, T>(&'a T);
@@ -44,6 +44,11 @@ impl<'a, T> Hash for PureRef<'a, T> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         state.write_usize(self.0 as *const T as usize)
     }
+}
+
+fn hash_dedup<T: Eq + Hash + Clone>(items: &mut Vec<T>) {
+    let mut seen = HashSet::new();
+    items.retain(|item| seen.insert(item.clone()));
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -384,9 +389,9 @@ impl<'a, T: Terminal, NT: NonTerminal> ParsingTable<'a, T, NT> {
         states.dedup();
 
         all_tokens.sort_by_key(|token| match token {
-            TokenOrEof::Terminal(_) => 0,
-            TokenOrEof::EOF => 1,
-            TokenOrEof::NonTerminal(_) => 2,
+            TokenOrEof::Terminal(x) => (0, x.to_string()),
+            TokenOrEof::EOF => (1, "$".to_string()),
+            TokenOrEof::NonTerminal(x) => (2, x.to_string()),
         });
 
         println!("| {}", Colour::Green.paint("Parsing table begin"));
@@ -445,11 +450,13 @@ fn generate_parsing_table<'a, T: Terminal, NT: NonTerminal>(
         while i < item_sets.len() {
             let item_set = item_sets[i].clone();
 
-            let possible_transitions = item_set
+            let mut possible_transitions = item_set
                 .positions
                 .iter()
                 .filter_map(|position| position.locus())
-                .collect::<HashSet<_>>();
+                .collect::<Vec<_>>();
+
+            hash_dedup(&mut possible_transitions);
 
             for transition in possible_transitions {
                 if goto_cache.contains_key(&(i, transition.clone())) {
@@ -457,10 +464,15 @@ fn generate_parsing_table<'a, T: Terminal, NT: NonTerminal>(
                 }
 
                 let goto_item_set = goto(&item_set, &grammar, &first_set, &transition);
-                goto_cache.insert((i, transition.clone()), item_sets.len());
 
                 if !item_sets.contains(&goto_item_set) {
+                    goto_cache.insert((i, transition.clone()), item_sets.len());
                     item_sets.push(goto_item_set);
+                } else {
+                    goto_cache.insert(
+                        (i, transition.clone()),
+                        item_sets.iter().position(|x| x == &goto_item_set).unwrap()
+                    );
                 }
             }
 
@@ -536,7 +548,7 @@ fn parse<T: Terminal, NT: NonTerminal, I: InputToken<T>, A>(
     parsing_table: &ParsingTable<T, NT>,
     callbacks: HashMap<
         PureRef<GrammarRule<T, NT>>,
-        impl Fn(Vec<InputTokenOrAst<T, I, A>>) -> A
+        fn(Vec<InputTokenOrAst<T, I, A>>) -> A,
     >,
     tokens: impl Iterator<Item=I>,
 ) -> Result<A, ParsingError<T, NT>> {
@@ -603,16 +615,16 @@ macro_rules! simple_grammar {
     };
 
     ($($lhs:ident => $($rhs:ident)*: { $cb:expr }; )+) => {{
-        let non_terminals = vec![$(stringify!($lhs)),*]
+        let non_terminals = vec![$(String::from(stringify!($lhs))),*]
             .into_iter()
-            .collect::<std::collections::HashSet<&str>>();
+            .collect::<std::collections::HashSet<String>>();
 
         let rules = vec![
             $(
                 GrammarRule {
-                    lhs: stringify!($lhs),
-                    rhs: vec![$(stringify!($rhs)),*].into_iter().map(|t| {
-                        if non_terminals.contains(t) {
+                    lhs: String::from(stringify!($lhs)),
+                    rhs: vec![$(String::from(stringify!($rhs))),*].into_iter().map(|t| {
+                        if non_terminals.contains(&t) {
                             GrammarToken::NonTerminal(t)
                         } else {
                             GrammarToken::Terminal(t)
@@ -626,25 +638,33 @@ macro_rules! simple_grammar {
 }
 
 macro_rules! rules_callback {
-    ($grammar:ident [
+    ($grammar:ident<$A:ty> [
         $(|$($($tt:tt)+),*| $cb:block),+
-    ]) => {
+    ]) => {{
+        let rules = $grammar.rules.iter();
 
-    };
+        vec![$((
+            PureRef::new(rules.next().unwrap()),
+            |args| {
+                let mut args = args.into_iter();
+                $(
+                    rules_callback!(__impl (args) $($tt)+ => $tt);
+                )*
+                $cb
+            } as fn(Vec<InputTokenOrAst<_, _, A>>) -> A
+        )),+]
+    }};
 
-    (__impl ($rule_ref:expr) |$($($tt:tt)+),*| $cb:block) => {
-
-    };
-
-    (__impl ($src:expr) $name:ident: $ty:ty) => {
+    (__impl ($src:expr) * $pat:pat => $name:ident) => {
         let $name = match $src {
-            Some()
+            Some(InputTokenOrAst::InputToken($pat, _)) => $name,
+            _ => panic!("Unexpected type"),
         }
     };
 
-    (__impl ($src:expr) $name:ident) => {
+    (__impl ($src:expr) $pat:pat => $name:ident) => {
         let $name = match $src {
-            Some(InputTokenOrAst::Ast(x)) => x,
+            Some(InputTokenOrAst::Ast($pat)) => $name,
             _ => panic!("Unexpected type"),
         }
     };
@@ -666,12 +686,13 @@ fn main() {
     */
 
     let grammar = simple_grammar! {
-        Goal => Expr;
-        Expr => Expr plus Term;
-        Expr => Term;
-        Term => Term star Factor;
-        Factor => lparen Expr lparen;
-        Factor => number;
+        /* 0 */ Goal => Expr;
+        /* 1 */ Expr => Expr plus Term;
+        /* 2 */ Expr => Term;
+        /* 3 */ Term => Term star Factor;
+        /* 4 */ Term => Factor;
+        /* 5 */ Factor => lparen Expr rparen;
+        /* 6 */ Factor => number;
     };
 
     enum Token {
@@ -682,14 +703,14 @@ fn main() {
         Star,
     }
 
-    impl InputToken<&'static str> for Token {
-        fn kind(&self) -> &'static str {
+    impl InputToken<String> for Token {
+        fn kind(&self) -> String {
             match self {
-                Self::Number(_) => "number",
-                Token::LParen => "lparen",
-                Token::RParen => "rparen",
-                Token::Plus => "plus",
-                Token::Star => "star",
+                Self::Number(_) => String::from("number"),
+                Token::LParen => String::from("lparen"),
+                Token::RParen => String::from("rparen"),
+                Token::Plus => String::from("plus"),
+                Token::Star => String::from("star"),
             }
         }
     }
@@ -700,19 +721,113 @@ fn main() {
     let res = parse(
         &table,
         vec![
-            (PureRef(&grammar.rules[0]), |x: Vec<_>| {
-                let v = match x.get(0) {
-                    Some(InputTokenOrAst::Ast(x)) => *x,
-                    _ => panic!("!")
-                };
-                v
-            }),
+            (PureRef(&grammar.rules[0]),
+             (|x| {
+                 let mut x = x.into_iter();
+                 let v = match x.next() {
+                     Some(InputTokenOrAst::Ast(x)) => x,
+                     _ => panic!("!")
+                 };
+                 assert!(x.next().is_none());
+                 v
+             }) as fn(Vec<InputTokenOrAst<_, _, i64>>) -> i64
+            ),
+            (PureRef(&grammar.rules[1]),
+             (|x| {
+                 let mut x = x.into_iter();
+                 let lhs = match x.next() {
+                     Some(InputTokenOrAst::Ast(x)) => x,
+                     _ => panic!("!")
+                 };
+                 let _ = match x.next() {
+                     Some(InputTokenOrAst::InputToken(Token::Plus, _)) => (),
+                     _ => panic!("!")
+                 };
+                 let rhs = match x.next() {
+                     Some(InputTokenOrAst::Ast(x)) => x,
+                     _ => panic!("!")
+                 };
+                 assert!(x.next().is_none());
+                 lhs + rhs
+             }) as fn(Vec<InputTokenOrAst<String, Token, i64>>) -> i64
+            ),
+            (PureRef(&grammar.rules[2]),
+             (|x| {
+                 let mut x = x.into_iter();
+                 let v = match x.next() {
+                     Some(InputTokenOrAst::Ast(x)) => x,
+                     _ => panic!("!")
+                 };
+                 assert!(x.next().is_none());
+                 v
+             }) as fn(Vec<InputTokenOrAst<String, Token, i64>>) -> i64
+            ),
+            (PureRef(&grammar.rules[3]),
+             (|x| {
+                 let mut x = x.into_iter();
+                 let lhs = match x.next() {
+                     Some(InputTokenOrAst::Ast(x)) => x,
+                     _ => panic!("!")
+                 };
+                 let _ = match x.next() {
+                     Some(InputTokenOrAst::InputToken(Token::Star, _)) => (),
+                     _ => panic!("!")
+                 };
+                 let rhs = match x.next() {
+                     Some(InputTokenOrAst::Ast(x)) => x,
+                     _ => panic!("!")
+                 };
+                 assert!(x.next().is_none());
+                 lhs * rhs
+             }) as fn(Vec<InputTokenOrAst<String, Token, i64>>) -> i64
+            ),
+            (PureRef(&grammar.rules[4]),
+             (|x| {
+                 let mut x = x.into_iter();
+                 let v = match x.next() {
+                     Some(InputTokenOrAst::Ast(x)) => x,
+                     _ => panic!("!")
+                 };
+                 assert!(x.next().is_none());
+                 v
+             }) as fn(Vec<InputTokenOrAst<String, Token, i64>>) -> i64
+            ),
+            (PureRef(&grammar.rules[5]),
+             (|x| {
+                 let mut x = x.into_iter();
+                 let _ = match x.next() {
+                     Some(InputTokenOrAst::InputToken(Token::LParen, _)) => (),
+                     _ => panic!("!")
+                 };
+                 let v = match x.next() {
+                     Some(InputTokenOrAst::Ast(x)) => x,
+                     _ => panic!("!")
+                 };
+                 let _ = match x.next() {
+                     Some(InputTokenOrAst::InputToken(Token::RParen, _)) => (),
+                     _ => panic!("!")
+                 };
+                 assert!(x.next().is_none());
+                 v
+             }) as fn(Vec<InputTokenOrAst<String, Token, i64>>) -> i64
+            ),
+            (PureRef(&grammar.rules[6]),
+             (|x| {
+                 let mut x = x.into_iter();
+                 let v = match x.next() {
+                     Some(InputTokenOrAst::InputToken(Token::Number(v), _)) => v,
+                     _ => panic!("!")
+                 };
+                 assert!(x.next().is_none());
+                 v
+             }) as fn(Vec<InputTokenOrAst<String, Token, i64>>) -> i64
+            ),
         ].into_iter().collect::<HashMap<_, _>>(),
         vec![
             Token::Number(5), Token::Star, Token::Number(6), Token::Plus,
             Token::Number(9), Token::Plus, Token::LParen, Token::Number(3),
             Token::Plus, Token::Number(3), Token::RParen, Token::Star,
-            Token::Number(2)
+            Token::Number(5)
         ].into_iter(),
     );
 
