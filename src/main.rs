@@ -4,81 +4,42 @@ mod lr1;
 mod typst_generator;
 
 use std::collections::HashMap;
-use std::fmt::Debug;
+use std::io::Write;
 
 use utils::*;
 use lr1::*;
 use typst_generator::*;
 
 fn main() {
+    let parser = typst_grammar! {
+        {
+            Goal => Expr; (a) => a;
+            Expr => Expr "+" number; (a, _1, b) => a + b;
+            Expr => number; (a) => a;
+        } where {
+            "typst_token_kind.literal_int" => number, x => x.text;
+            "typst_token_kind.punc_plus" => "+";
+        }
+    };
+
+    println!("{}", parser);
+
+    let mut file = std::fs::File::create("parser.typ").unwrap();
+    file.write_all(parser.as_bytes()).unwrap();
+
     /*
     let grammar = simple_grammar! {
-        Goal => Program;
-        Program => ;
-        Program => Program begin_expr Expr;
+        Goal => Expr;
         Expr => Expr plus Term;
         Expr => Term;
-        Term => Term times Factor;
+        Term => Term star Factor;
         Term => Factor;
         Factor => lparen Expr rparen;
         Factor => number;
     };
-    */
-
-    let grammar = simple_grammar! {
-        /* 0 */ Goal => Expr;
-        /* 1 */ Expr => Expr plus Term;
-        /* 2 */ Expr => Term;
-        /* 3 */ Term => Term star Factor;
-        /* 4 */ Term => Factor;
-        /* 5 */ Factor => lparen Expr rparen;
-        /* 6 */ Factor => number;
-    };
-
-    #[derive(Debug, Clone, PartialEq)]
-    enum Token {
-        Number(i64),
-        LParen,
-        RParen,
-        Plus,
-        Star,
-    }
-
-    impl InputToken<String> for Token {
-        fn kind(&self) -> String {
-            match self {
-                Self::Number(_) => String::from("number"),
-                Token::LParen => String::from("lparen"),
-                Token::RParen => String::from("rparen"),
-                Token::Plus => String::from("plus"),
-                Token::Star => String::from("star"),
-            }
-        }
-    }
 
     let table = generate_parsing_table(&grammar);
     table.dump(&grammar);
-
-    let res = parse(
-        &table,
-        rules_callback!(grammar<i64> [
-            ([a => a]) { a },
-            ([a => a], [*], [b => b]) { a + b },
-            ([a => a]) { a },
-            ([a => a], [*], [b => b]) { a * b },
-            ([a => a]) { a },
-            ([*], [a => a], [*]) { a },
-            ([*Token::Number(a) => a]) { a }
-        ]),
-        vec![
-            Token::Number(5), Token::Star, Token::Number(6), Token::Plus,
-            Token::Number(9), Token::Plus, Token::LParen, Token::Number(3),
-            Token::Plus, Token::Number(3), Token::RParen, Token::Star,
-            Token::Number(5)
-        ].into_iter(),
-    );
-
-    println!("{res:?}");
 
     let typst_parser = generate_typst_parser(
         &table,
@@ -101,4 +62,5 @@ fn main() {
     );
 
     println!("{}", typst_parser);
+     */
 }

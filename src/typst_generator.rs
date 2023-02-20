@@ -25,15 +25,25 @@ impl TypstRule {
 pub fn generate_typst_parser<T: Terminal, NT: NonTerminal>(
     parsing_table: &ParsingTable<T, NT>,
     token_kind_mapping: HashMap<String, T>,
+    casts: HashMap<String, String>,
     callbacks: HashMap<PureRef<GrammarRule<T, NT>>, TypstRule>,
 ) -> String {
-    let mut terminals = token_kind_mapping.values().collect::<Vec<_>>();
+    let terminals_typst_exprs = token_kind_mapping.keys().collect::<Vec<_>>();
+    let mut terminals = terminals_typst_exprs.iter().map(|&x| &token_kind_mapping[x]).collect::<Vec<_>>();
     hash_dedup(&mut terminals);
     let terminals_pos = terminals.iter().enumerate().map(|(i, &x)| (x, i)).collect::<HashMap<_, _>>();
 
+    let terminals_filling = format!(
+        "let res = (:); {} res",
+        terminals_typst_exprs.iter().enumerate().map(|(i, &x)|
+            format!("res.insert({}, {}); ", x, i)
+        ).collect::<Vec<_>>().join(""),
+    );
+
     let token_mapping_def = format!(
-        "let token_mapping = ({})",
-        terminals.iter().enumerate().map(|(i, x)| format!("\"{}\":{}", x, i)).collect::<Vec<_>>().join(",")
+        "let token_mapping = if type({}) == \"string\" {{{}}} else {{range(terminals.len())}}",
+        terminals_typst_exprs.iter().next().unwrap(),
+        terminals_filling,
     );
 
     let indexed_callbacks = callbacks.iter().map(|(rule, callback)| (rule, callback)).collect::<Vec<_>>();
@@ -48,6 +58,11 @@ pub fn generate_typst_parser<T: Terminal, NT: NonTerminal>(
     let arg_count_def = format!(
         "let arg_count = ({})",
         callbacks_strs.iter().map(|x| format!("{},", x.arg_count)).rev().collect::<Vec<_>>().join("")
+    );
+
+    let cast_table = format!(
+        "let cast_table = ({})",
+        terminals_typst_exprs.iter().map(|t| casts[&t.to_string()].clone() + ",").collect::<Vec<_>>().join("")
     );
 
     let total_states = parsing_table.table.keys().map(|(state, _)| *state).max().unwrap() + 1;
@@ -101,6 +116,7 @@ pub fn generate_typst_parser<T: Terminal, NT: NonTerminal>(
     {table_def}
     {arg_count_def}
     {goto_index_def}
+    {cast_table}
     let stack = (0, )
     let ast_stack = ()
     let cur_token = 0
@@ -117,8 +133,7 @@ pub fn generate_typst_parser<T: Terminal, NT: NonTerminal>(
             return ast_stack.first()
         }} else if action > 0 {{
             stack.push(action)
-            ast_stack.push(if "value" in tokens.at(cur_token)
-                {{ tokens.at(cur_token).value }} else {{ none }})
+            ast_stack.push(cast_table.at(terminal)(tokens.at(cur_token)))
             cur_token += 1
         }} else if action < 0 {{
             let rhs = ()
@@ -139,7 +154,6 @@ pub fn generate_typst_parser<T: Terminal, NT: NonTerminal>(
                 repr(if cur_token < tokens.len() {{ tokens.at(cur_token) }} else {{"EOF"}}))
         }}
     }}
-}}
-        "#
+}}"#
     )
 }
