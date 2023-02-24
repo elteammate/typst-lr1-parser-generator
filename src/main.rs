@@ -22,45 +22,11 @@ fn main() {
         }
     };
 
-    println!("{}", parser);
+    let parser = format!(r#"#import "reflection-lexer.typ": *
+#import "reflection-ast.typ": *
+#let typst_parse = {}"#, parser);
 
+    println!("{}", parser);
     let mut file = std::fs::File::create("parser.typ").unwrap();
     file.write_all(parser.as_bytes()).unwrap();
-
-    /*
-    let grammar = simple_grammar! {
-        Goal => Expr;
-        Expr => Expr plus Term;
-        Expr => Term;
-        Term => Term star Factor;
-        Term => Factor;
-        Factor => lparen Expr rparen;
-        Factor => number;
-    };
-
-    let table = generate_parsing_table(&grammar);
-    table.dump(&grammar);
-
-    let typst_parser = generate_typst_parser(
-        &table,
-        [
-            ("token_type.number".to_string(), "number".to_string()),
-            ("token_type.lparen".to_string(), "lparen".to_string()),
-            ("token_type.rparen".to_string(), "rparen".to_string()),
-            ("token_type.plus".to_string(), "plus".to_string()),
-            ("token_type.star".to_string(), "star".to_string()),
-        ].into_iter().collect::<HashMap<_, _>>(),
-        [
-            (PureRef(&grammar.rules[0]), TypstRule::new(vec!["a"], "a")),
-            (PureRef(&grammar.rules[1]), TypstRule::new(vec!["a", "_", "b"], "a + b")),
-            (PureRef(&grammar.rules[2]), TypstRule::new(vec!["a"], "a")),
-            (PureRef(&grammar.rules[3]), TypstRule::new(vec!["a", "_", "b"], "a * b")),
-            (PureRef(&grammar.rules[4]), TypstRule::new(vec!["a"], "a")),
-            (PureRef(&grammar.rules[5]), TypstRule::new(vec!["_", "a", "_"], "a")),
-            (PureRef(&grammar.rules[6]), TypstRule::new(vec!["a"], "a")),
-        ].into_iter().collect::<HashMap<_, _>>(),
-    );
-
-    println!("{}", typst_parser);
-     */
 }

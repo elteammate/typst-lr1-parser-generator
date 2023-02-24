@@ -33,17 +33,28 @@ pub fn generate_typst_parser<T: Terminal, NT: NonTerminal>(
     hash_dedup(&mut terminals);
     let terminals_pos = terminals.iter().enumerate().map(|(i, &x)| (x, i)).collect::<HashMap<_, _>>();
 
-    let terminals_filling = format!(
+    let terminals_filling_string_case = format!(
         "let res = (:); {} res",
         terminals_typst_exprs.iter().enumerate().map(|(i, &x)|
             format!("res.insert({}, {}); ", x, i)
         ).collect::<Vec<_>>().join(""),
     );
 
+    let enum_name_speculation = casts.iter().next().unwrap().0.split('.').next().unwrap();
+
+    let terminals_filling_int_case = format!(
+        "let res = range({}.len()); {} res",
+        enum_name_speculation,
+        terminals_typst_exprs.iter().enumerate().map(|(i, &x)|
+            format!("res.at({}) = {}; ", x, i)
+        ).collect::<Vec<_>>().join(""),
+    );
+
     let token_mapping_def = format!(
-        "let token_mapping = if type({}) == \"string\" {{{}}} else {{range(terminals.len())}}",
+        "let token_mapping = if type({}) == \"string\" {{{}}} else {{{}}}",
         terminals_typst_exprs.iter().next().unwrap(),
-        terminals_filling,
+        terminals_filling_string_case,
+        terminals_filling_int_case,
     );
 
     let indexed_callbacks = callbacks.iter().map(|(rule, callback)| (rule, callback)).collect::<Vec<_>>();
@@ -109,8 +120,7 @@ pub fn generate_typst_parser<T: Terminal, NT: NonTerminal>(
     );
 
     format!(
-        r#"
-#let parse(tokens) = {{
+        r#"(tokens) => {{
     {token_mapping_def}
     {callbacks_def}
     {table_def}
