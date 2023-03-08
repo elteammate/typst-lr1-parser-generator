@@ -78,7 +78,7 @@ macro_rules! rules_callback {
 }
 
 #[macro_export]
-macro_rules! typst_grammar {
+macro_rules! old_typst_grammar {
     {
         {$(
             $lhs:ident => $($rhs:expr)*; ($($args:expr),*) => $cb:expr;
@@ -94,7 +94,7 @@ macro_rules! typst_grammar {
             $(
                 GrammarRule {
                     lhs: String::from(stringify!($lhs)),
-                    rhs: vec![$(String::from(typst_grammar!(__impl_stringify_or_lit $rhs))),*].into_iter().map(|t| {
+                    rhs: vec![$(String::from(old_typst_grammar!(__impl_stringify_or_lit $rhs))),*].into_iter().map(|t| {
                         if non_terminals.contains(&t) {
                             GrammarToken::NonTerminal(t)
                         } else {
@@ -113,18 +113,18 @@ macro_rules! typst_grammar {
             &table,
             [
                 $((
-                    typst_grammar!(__impl_stringify_or_lit $typst_kind).to_string(),
-                    typst_grammar!(__impl_stringify_or_lit $local_kind).to_string(),
+                    old_typst_grammar!(__impl_stringify_or_lit $typst_kind).to_string(),
+                    old_typst_grammar!(__impl_stringify_or_lit $local_kind).to_string(),
                 )),*
             ].into_iter().collect::<HashMap<_, _>>(),
             [
                 $((
-                    typst_grammar!(__impl_stringify_or_lit $typst_kind).to_string(),
-                    typst_grammar!(__impl_if_then_else ($($arg)?)
+                    old_typst_grammar!(__impl_stringify_or_lit $typst_kind).to_string(),
+                    old_typst_grammar!(__impl_if_then_else ($($arg)?)
                         ($(format!(
                                 "({}) => {{ {} }}",
-                                typst_grammar!(__impl_stringify_or_lit $arg),
-                                typst_grammar!(__impl_stringify_or_lit $cast),
+                                old_typst_grammar!(__impl_stringify_or_lit $arg),
+                                old_typst_grammar!(__impl_stringify_or_lit $cast),
                         ))?)
                         ("_=>none".to_string())
                     )
@@ -132,8 +132,8 @@ macro_rules! typst_grammar {
             ].into_iter().collect::<HashMap<_, _>>(),
             [
                 $((PureRef(rules.next().unwrap()), TypstRule::new(vec![$(
-                    typst_grammar!(__impl_stringify_or_lit $args)
-                ),*], typst_grammar!(__impl_stringify_or_lit $cb)))),+
+                    old_typst_grammar!(__impl_stringify_or_lit $args)
+                ),*], old_typst_grammar!(__impl_stringify_or_lit $cb)))),+
             ].into_iter().collect::<HashMap<_, _>>(),
         )
     }};

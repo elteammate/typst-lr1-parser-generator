@@ -157,10 +157,10 @@ pub fn generate_typst_parser<T: Terminal, NT: NonTerminal>(
             if goto_state > 0 {{
                 stack.push(goto_state)
             }} else {{
-                (:).at("Expected shift action")
+                panic("Expected shift action")
             }}
         }} else {{
-            (:).at("Parsing error at state: " + repr(stack) + " and token: " +
+            panic("Parsing error at state: " + repr(stack) + " and token: " +
                 repr(if cur_token < tokens.len() {{ tokens.at(cur_token) }} else {{"EOF"}}))
         }}
     }}
