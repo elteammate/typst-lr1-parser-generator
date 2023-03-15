@@ -2,6 +2,7 @@ mod utils;
 mod macros;
 mod lr1;
 mod typst_generator;
+mod input;
 
 use std::collections::HashMap;
 use std::io::Write;
@@ -9,8 +10,30 @@ use std::io::Write;
 use utils::*;
 use lr1::*;
 use typst_generator::*;
+use crate::input::typst_grammar;
 
 fn main() {
+    println!("{}", typst_grammar(r#"
+        rule Goal {
+            Expr,
+        }
+
+        rule Expr {
+            number,
+            Expr "+" number {
+                (a, _1, b) => mk_node(ast_node_type.add, span: span_fast_merge(a, b), left: a, right: b)
+            },
+        }
+
+        cast number(typst_token_kind.literal_int) {
+            x => mk_node(ast_node_type.literal_int, span: x.span, value: x.text)
+        }
+
+        cast "+"(typst_token_kind.punc_plus);
+    "#));
+
+    return;
+
     let parser = old_typst_grammar! {
         {
             Goal => Expr;
@@ -30,6 +53,7 @@ fn main() {
 #import "reflection-ast.typ": *
 #import "reflection-span.typ": *
 #let typst_parse = {}"#, parser);
+
 
     println!("{}", parser);
     let mut file = std::fs::File::create("parser.typ").unwrap();

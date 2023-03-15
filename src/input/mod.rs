@@ -1,15 +1,11 @@
-use proc_macro::{TokenStream};
 use lalrpop_util;
-use quote::quote;
+use lalrpop_util::lalrpop_mod;
 
 mod ast;
 
-mod parser {
-    include!(concat!(env!("OUT_DIR"), "/parser.rs"));
-}
+lalrpop_mod!(parser);
 
-#[proc_macro]
-pub fn typst_grammar(input: TokenStream) -> TokenStream {
+pub fn typst_grammar(input: &str) -> String {
     let input = input.to_string();
 
     let parser = parser::GrammarParser::new();
@@ -37,18 +33,5 @@ pub fn typst_grammar(input: TokenStream) -> TokenStream {
         }).collect::<Vec<_>>()
     }).flatten().collect();
 
-    quote!({
-        let rules = vec![#(
-            GrammarRule {
-                lhs: String::from(#raw_rules.0),
-                rhs: vec![#(#raw_rules.1),*].into_iter().map(|t| {
-                    if non_terminals.contains(&t) {
-                        GrammarToken::NonTerminal(t)
-                    } else {
-                        GrammarToken::Terminal(t)
-                    }
-                }).collect::<Vec<_>>(),
-            }
-        ),+];
-    }).into()
+    "".to_string()
 }
