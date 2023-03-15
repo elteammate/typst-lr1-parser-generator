@@ -20,6 +20,13 @@ impl TypstRule {
             arg_count: args.len(),
         }
     }
+
+    pub fn new_raw(implementation: &str, arg_count: usize) -> Self {
+        TypstRule {
+            callback: implementation.to_string(),
+            arg_count: arg_count,
+        }
+    }
 }
 
 pub fn generate_typst_parser<T: Terminal, NT: NonTerminal>(
@@ -96,7 +103,7 @@ pub fn generate_typst_parser<T: Terminal, NT: NonTerminal>(
 
     for ((state, token), action) in parsing_table.table.iter() {
         let token_pos = match token {
-            TokenOrEof::Terminal(t) => terminals_pos[t],
+            TokenOrEof::Terminal(t) => terminals_pos.get(t).unwrap_or_else(|| panic!("Can't get terminal {}", t)).clone(),
             TokenOrEof::NonTerminal(t) => non_terminals_pos[t],
             TokenOrEof::EOF => eof_id,
         };
@@ -105,7 +112,13 @@ pub fn generate_typst_parser<T: Terminal, NT: NonTerminal>(
             Action::Shift(next_state) => *next_state as i32,
             Action::Reduce(rule) => -(rule_pos[rule] as i32) - 1,
             Action::Accept => total_states as i32,
-            Action::Conflict(_) => panic!("Conflict in parser table"),
+            Action::Conflict(_) => {
+                println!("Conflict in parser table!");
+                println!("State: {}", state);
+                println!("Token: {:?}", token);
+                println!("Action: {:?}", action);
+                panic!("Conflict in parser table")
+            },
         };
 
         table_int_repr[*state][token_pos] = action;

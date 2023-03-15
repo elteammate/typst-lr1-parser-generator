@@ -289,7 +289,39 @@ impl<'a, T: Terminal, NT: NonTerminal> ItemSet<'a, T, NT> {
             }
         }
 
+        positions.sort_by_key(|p| (p.rule.0 as *const GrammarRule<T, NT>, p.dot));
         Self { positions }
+    }
+
+    fn compare_lr0_cores(&self, other: &ItemSet<'a, T, NT>) -> bool {
+        let mut i = 0;
+        let mut j = 0;
+        while i < self.positions.len() && j < other.positions.len() {
+            while Some(self.positions[i].rule) == self.positions.get(i + 1).map(|p| p.rule)
+                && Some(self.positions[i].dot) == self.positions.get(i + 1).map(|p| p.dot) {
+                i += 1;
+            }
+
+            while Some(other.positions[j].rule) == other.positions.get(j + 1).map(|p| p.rule)
+                && Some(other.positions[j].dot) == other.positions.get(j + 1).map(|p| p.dot) {
+                j += 1;
+            }
+
+            if self.positions[i].rule != other.positions[j].rule {
+                return false;
+            }
+
+            i += 1;
+            j += 1;
+        }
+
+        i == self.positions.len() && j == other.positions.len()
+    }
+
+    fn merge_with(&mut self, other: &ItemSet<'a, T, NT>) {
+        self.positions.extend_from_slice(&other.positions);
+        hash_dedup(&mut self.positions);
+        self.positions.sort_by_key(|p| (p.rule.0 as *const GrammarRule<T, NT>, p.dot));
     }
 
     fn dump(&self, number: usize) {
@@ -396,10 +428,10 @@ impl<'a, T: Terminal, NT: NonTerminal> ParsingTable<'a, T, NT> {
 pub fn generate_parsing_table<'a, T: Terminal, NT: NonTerminal>(
     grammar: &'a Grammar<T, NT>
 ) -> ParsingTable<'a, T, NT> {
-    grammar.dump();
+    // grammar.dump();
 
     let first_set = FirstSet::new(&grammar);
-    first_set.dump();
+    // first_set.dump();
 
     let start_position = Position::new(PureRef(&grammar.rules[0]), 0, TerminalOrEof::EOF);
     let item_set_0 = ItemSet::new(vec![start_position], &grammar, &first_set);
@@ -427,14 +459,15 @@ pub fn generate_parsing_table<'a, T: Terminal, NT: NonTerminal>(
 
                 let goto_item_set = goto(&item_set, &grammar, &first_set, &transition);
 
-                if !item_sets.contains(&goto_item_set) {
+                let merge_with = item_sets.iter()
+                    .position(|x| x.compare_lr0_cores(&goto_item_set));
+
+                if let Some(merge_with) = merge_with {
+                    item_sets[merge_with].merge_with(&goto_item_set);
+                    goto_cache.insert((i, transition.clone()), merge_with);
+                } else {
                     goto_cache.insert((i, transition.clone()), item_sets.len());
                     item_sets.push(goto_item_set);
-                } else {
-                    goto_cache.insert(
-                        (i, transition.clone()),
-                        item_sets.iter().position(|x| x == &goto_item_set).unwrap()
-                    );
                 }
             }
 

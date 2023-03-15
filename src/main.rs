@@ -13,47 +13,16 @@ use typst_generator::*;
 use crate::input::typst_grammar;
 
 fn main() {
-    println!("{}", typst_grammar(r#"
-        rule Goal {
-            Expr,
-        }
-
-        rule Expr {
-            number,
-            Expr "+" number {
-                (a, _1, b) => mk_node(ast_node_type.add, span: span_fast_merge(a, b), left: a, right: b)
-            },
-        }
-
-        cast number(typst_token_kind.literal_int) {
-            x => mk_node(ast_node_type.literal_int, span: x.span, value: x.text)
-        }
-
-        cast "+"(typst_token_kind.punc_plus);
-    "#));
-
-    return;
-
-    let parser = old_typst_grammar! {
-        {
-            Goal => Expr;
-                (a) => a;
-            Expr => Expr "+" number;
-                (a, _1, b) => "mk_node(ast_node_type.add, span: span_fast_merge(a, b), left: a, right: b)";
-            Expr => number;
-                (a) => a;
-        } where {
-            "typst_token_kind.literal_int" => number,
-                x => "mk_node(ast_node_type.literal_int, span: x.span, value: x.text)";
-            "typst_token_kind.punc_plus" => "+";
-        }
-    };
+    let parser = typst_grammar(include_str!("grammar.typst_gr"));
 
     let parser = format!(r#"#import "reflection-lexer.typ": *
 #import "reflection-ast.typ": *
 #import "reflection-span.typ": *
-#let typst_parse = {}"#, parser);
-
+#let typst_parse = {{
+    let A = ast_node_type
+    let T = typst_token_kind
+    {}
+}}"#, parser);
 
     println!("{}", parser);
     let mut file = std::fs::File::create("parser.typ").unwrap();

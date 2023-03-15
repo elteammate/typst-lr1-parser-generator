@@ -36,6 +36,7 @@ Alternative: Alternative = {
 };
 
 Terms: Vec<String> = {
+    "EPS" => vec![],
     Term => vec![<>],
     <p:Terms> <last:Term> => {
         let mut p = p.clone();
@@ -51,7 +52,7 @@ Term: String = {
 
 Cast: Cast = {
     "cast" <name:Term> "(" <kind:Typst> ")" "{" <cast:Typst> "}" => Cast { typst_kind: kind, local_kind: name, cast },
-    "cast" <name:Term> "(" <kind:Typst> ")" ";" => Cast { typst_kind: kind, local_kind: name, cast: Typst("() => none".to_string()) },
+    "cast" <name:Term> "(" <kind:Typst> ")" ";" => Cast { typst_kind: kind, local_kind: name, cast: Typst("_ => none".to_string()) },
 };
 
 Str: String = <s:r#""[^"]*""#> => s.to_string();
@@ -60,9 +61,9 @@ Num: String = <s:r"[0-9]+"> => String::from_str(s).unwrap();
 
 Typst: Typst = {
     => Typst("".to_string()),
-    <t:Typst> <s:Str> => Typst(t.0 + " " + &s),
-    <t:Typst> <i:Ident> => Typst(t.0 + " " + &i),
-    <t:Typst> <n:Num> => Typst(t.0 + " " + &n),
+    <t:Typst> <s:Str> => Typst(t.0 + "" + &s),
+    <t:Typst> <i:Ident> => Typst(t.0 + "" + &i),
+    <t:Typst> <n:Num> => Typst(t.0 + "" + &n),
 
     <t:Typst> "," => Typst(t.0 + ","),
     <t:Typst> "." => Typst(t.0 + "."),

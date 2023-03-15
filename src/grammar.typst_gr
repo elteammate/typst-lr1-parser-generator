@@ -1,0 +1,159 @@
+rule Goal {
+    ExprLineP0,
+}
+
+rule ParamList {
+    "(" ")" { (_1, _2) => mk_node(A.param_list, args: ()) },
+}
+
+rule ExprLineP8 {
+    ident, int, float, string, bool, none,
+    "(" ExprLineP0 ")" { e => e },
+}
+
+rule ExprLineP7 {
+    ExprLineP8,
+    "+" ExprLineP8 { (_, e) => mk_node(A.unary_plus, arg: e) },
+    "-" ExprLineP8 { (_, e) => mk_node(A.unary_minus, arg: e) },
+    ExprLineP8 "." ident { (l, _, r) => mk_node(A.member_access, lhs: l, rhs: r) },
+    ExprLineP8 ParamList { (f, args) => mk_node(A.call, func: f, args: args) },
+}
+
+rule ExprLineP6 {
+    ExprLineP7,
+    ExprLineP6 "*" ExprLineP7 { (l, _, r) => mk_node(A.binary_mul, lhs: l, rhs: r) },
+    ExprLineP6 "/" ExprLineP7 { (l, _, r) => mk_node(A.binary_div, lhs: l, rhs: r) },
+}
+
+rule ExprLineP5 {
+    ExprLineP6,
+    ExprLineP5 "+" ExprLineP6 { (l, _, r) => mk_node(A.binary_add, lhs: l, rhs: r) },
+    ExprLineP5 "-" ExprLineP6 { (l, _, r) => mk_node(A.binary_sub, lhs: l, rhs: r) },
+}
+
+rule ExprLineP4 {
+    ExprLineP5,
+    ExprLineP4 "==" ExprLineP5 { (l, _, r) => mk_node(A.binary_eq, lhs: l, rhs: r) },
+    ExprLineP4 "!=" ExprLineP5 { (l, _, r) => mk_node(A.binary_ne, lhs: l, rhs: r) },
+    ExprLineP4 "<" ExprLineP5 { (l, _, r) => mk_node(A.binary_lt, lhs: l, rhs: r) },
+    ExprLineP4 ">" ExprLineP5 { (l, _, r) => mk_node(A.binary_gt, lhs: l, rhs: r) },
+    ExprLineP4 "<=" ExprLineP5 { (l, _, r) => mk_node(A.binary_le, lhs: l, rhs: r) },
+    ExprLineP4 ">=" ExprLineP5 { (l, _, r) => mk_node(A.binary_ge, lhs: l, rhs: r) },
+    ExprLineP4 in ExprLineP5 { (l, _, r) => mk_node(A.binary_ge, lhs: l, rhs: r) },
+    ExprLineP4 not in ExprLineP5 { (l, _1, _2, r) => mk_node(A.binary_ge, lhs: l, rhs: r) },
+}
+
+rule ExprLineP3 {
+    ExprLineP4,
+    not ExprLineP4 { (_, e) => mk_node(A.unary_not, arg: e) },
+    ExprLineP3 and ExprLineP4 { (l, _, r) => mk_node(A.binary_and, lhs: l, rhs: r) },
+}
+
+rule ExprLineP2 {
+    ExprLineP3,
+    ExprLineP2 or ExprLineP3 { (l, _, r) => mk_node(A.binary_or, lhs: l, rhs: r) },
+}
+
+rule ExprLineP1 {
+    ExprLineP2,
+    ExprLineP8 "=" ExprLineP2 { (l, _, r) => mk_node(A.assign, lhs: l, rhs: r) },
+    ExprLineP8 "+=" ExprLineP2 { (l, _, r) => mk_node(A.add_assign, lhs: l, rhs: r) },
+    ExprLineP8 "-=" ExprLineP2 { (l, _, r) => mk_node(A.sub_assign, lhs: l, rhs: r) },
+    ExprLineP8 "*=" ExprLineP2 { (l, _, r) => mk_node(A.mul_assign, lhs: l, rhs: r) },
+    ExprLineP8 "/=" ExprLineP2 { (l, _, r) => mk_node(A.div_assign, lhs: l, rhs: r) },
+}
+
+rule ExprLineP0 {
+    ExprLineP1,
+}
+
+rule eps {
+    EPS { () => none },
+}
+
+cast ident(T.ident) {
+    x => mk_node(A.ident, name: x.text)
+}
+
+cast int(T.literal_int) {
+    x => mk_node(A.literal_int, value: x.text)
+}
+
+cast float(T.literal_float) {
+    x => mk_node(A.literal_float, value: x.text)
+}
+
+cast string(T.literal_string) {
+    x => mk_node(A.literal_string, value: x.text)
+}
+
+cast bool(T.literal_bool) {
+    x => mk_node(A.literal_bool, value: x.text)
+}
+
+cast none(T.literal_none);
+
+cast let(T.kw_let);
+cast set(T.kw_set);
+cast show(T.kw_show);
+cast if(T.kw_if);
+cast else(T.kw_else);
+cast for(T.kw_for);
+cast while(T.kw_while);
+cast break(T.kw_break);
+cast continue(T.kw_continue);
+cast include(T.kw_include);
+cast import(T.kw_import);
+cast from(T.kw_from);
+cast in(T.kw_in);
+cast not(T.kw_not);
+cast and(T.kw_and);
+cast or(T.kw_or);
+
+cast "+"(T.punc_plus);
+cast "-"(T.punc_minus);
+cast "*"(T.punc_star);
+cast "/"(T.punc_slash);
+cast "."(T.punc_dot);
+cast ".."(T.punc_dotdot);
+cast "="(T.punc_eq);
+cast "+="(T.punc_pluseq);
+cast "-="(T.punc_minuseq);
+cast "*="(T.punc_stareq);
+cast "/="(T.punc_slasheq);
+cast "=="(T.punc_eqeq);
+cast "!="(T.punc_neq);
+cast "<"(T.punc_lt);
+cast ">"(T.punc_gt);
+cast "<="(T.punc_le);
+cast ">="(T.punc_ge);
+cast "("(T.punc_lparen);
+cast ")"(T.punc_rparen);
+cast "["(T.punc_lbracket);
+cast "]"(T.punc_rbracket);
+cast "{"(T.punc_lbrace);
+cast "}"(T.punc_rbrace);
+cast "#"(T.punc_hash);
+cast ","(T.punc_comma);
+cast ":"(T.punc_colon);
+cast "=>"(T.punc_arrow);
+cast ";"(T.punc_semi);
+cast "$"(T.punc_dollar);
+
+cast hs(T.hspace);
+cast vs(T.vspace);
+
+cast comment_doc(T.comment_doc) {
+    x => mk_node(A.comment_doc, value: x.text)
+}
+
+cast comment_doc_outer(T.comment_doc_outer) {
+    x => mk_node(A.comment_doc_outer, value: x.text)
+}
+
+cast comment_line(T.comment_line);
+cast comment_block(T.comment_block);
+
+cast unknown(T.unknown) {
+    x => mk_node(A.unknown, value: x.text)
+}

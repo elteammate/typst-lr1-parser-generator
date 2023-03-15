@@ -1,0 +1,11 @@
+rule Goal {
+    Expr,
+}
+
+rule Expr {
+    "(" Expr ")",
+    "(" ")",
+}
+
+cast "("(5);
+cast ")"(6);
