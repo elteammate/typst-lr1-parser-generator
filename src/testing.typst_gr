@@ -1,11 +1,108 @@
 rule Goal {
-    Expr,
+    ExprLineP7,
 }
 
-rule Expr {
-    "(" Expr ")",
-    "(" ")",
+rule ParamList {
+    "(" ")" { (_1, _2) => mk_node(A.param_list, args: ()) },
 }
 
-cast "("(5);
-cast ")"(6);
+rule ExprLineP8 {
+    ident,
+    "(" ExprLineP7 ")" { e => e },
+}
+
+rule ExprLineP7 {
+    ExprLineP8,
+    ExprLineP8 ParamList { (f, args) => mk_node(A.call, func: f, args: args) },
+}
+
+rule eps {
+    EPS { () => none },
+}
+
+cast ident(T.ident) {
+    x => mk_node(A.ident, name: x.text)
+}
+
+cast int(T.literal_int) {
+    x => mk_node(A.literal_int, value: x.text)
+}
+
+cast float(T.literal_float) {
+    x => mk_node(A.literal_float, value: x.text)
+}
+
+cast string(T.literal_string) {
+    x => mk_node(A.literal_string, value: x.text)
+}
+
+cast bool(T.literal_bool) {
+    x => mk_node(A.literal_bool, value: x.text)
+}
+
+cast none(T.literal_none);
+
+cast let(T.kw_let);
+cast set(T.kw_set);
+cast show(T.kw_show);
+cast if(T.kw_if);
+cast else(T.kw_else);
+cast for(T.kw_for);
+cast while(T.kw_while);
+cast break(T.kw_break);
+cast continue(T.kw_continue);
+cast include(T.kw_include);
+cast import(T.kw_import);
+cast from(T.kw_from);
+cast in(T.kw_in);
+cast not(T.kw_not);
+cast and(T.kw_and);
+cast or(T.kw_or);
+
+cast "+"(T.punc_plus);
+cast "-"(T.punc_minus);
+cast "*"(T.punc_star);
+cast "/"(T.punc_slash);
+cast "."(T.punc_dot);
+cast ".."(T.punc_dotdot);
+cast "="(T.punc_eq);
+cast "+="(T.punc_pluseq);
+cast "-="(T.punc_minuseq);
+cast "*="(T.punc_stareq);
+cast "/="(T.punc_slasheq);
+cast "=="(T.punc_eqeq);
+cast "!="(T.punc_neq);
+cast "<"(T.punc_lt);
+cast ">"(T.punc_gt);
+cast "<="(T.punc_le);
+cast ">="(T.punc_ge);
+cast "("(T.punc_lparen);
+cast ")"(T.punc_rparen);
+cast "["(T.punc_lbracket);
+cast "]"(T.punc_rbracket);
+cast "{"(T.punc_lbrace);
+cast "}"(T.punc_rbrace);
+cast "#"(T.punc_hash);
+cast ","(T.punc_comma);
+cast ":"(T.punc_colon);
+cast "=>"(T.punc_arrow);
+cast ";"(T.punc_semi);
+cast "$"(T.punc_dollar);
+
+cast hs(T.hspace);
+cast vs(T.vspace);
+
+cast comment_doc(T.comment_doc) {
+    x => mk_node(A.comment_doc, value: x.text)
+}
+
+cast comment_doc_outer(T.comment_doc_outer) {
+    x => mk_node(A.comment_doc_outer, value: x.text)
+}
+
+cast comment_line(T.comment_line);
+cast comment_block(T.comment_block);
+
+cast unknown(T.unknown) {
+    x => mk_node(A.unknown, value: x.text)
+}

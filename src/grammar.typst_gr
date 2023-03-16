@@ -8,7 +8,7 @@ rule ParamList {
 
 rule ExprLineP8 {
     ident, int, float, string, bool, none,
-    "(" ExprLineP0 ")" { e => e },
+    "(" ExprLineP0 ")" { (_1, e, _2) => mk_node(A.paren, expr: e) },
 }
 
 rule ExprLineP7 {
@@ -39,8 +39,8 @@ rule ExprLineP4 {
     ExprLineP4 ">" ExprLineP5 { (l, _, r) => mk_node(A.binary_gt, lhs: l, rhs: r) },
     ExprLineP4 "<=" ExprLineP5 { (l, _, r) => mk_node(A.binary_le, lhs: l, rhs: r) },
     ExprLineP4 ">=" ExprLineP5 { (l, _, r) => mk_node(A.binary_ge, lhs: l, rhs: r) },
-    ExprLineP4 in ExprLineP5 { (l, _, r) => mk_node(A.binary_ge, lhs: l, rhs: r) },
-    ExprLineP4 not in ExprLineP5 { (l, _1, _2, r) => mk_node(A.binary_ge, lhs: l, rhs: r) },
+    ExprLineP4 in ExprLineP5 { (l, _, r) => mk_node(A.binary_in, lhs: l, rhs: r) },
+    ExprLineP4 not in ExprLineP5 { (l, _1, _2, r) => mk_node(A.binary_not_in, lhs: l, rhs: r) },
 }
 
 rule ExprLineP3 {

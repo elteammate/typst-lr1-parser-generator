@@ -307,7 +307,7 @@ impl<'a, T: Terminal, NT: NonTerminal> ItemSet<'a, T, NT> {
                 j += 1;
             }
 
-            if self.positions[i].rule != other.positions[j].rule {
+            if self.positions[i].rule != other.positions[j].rule || self.positions[i].dot != other.positions[j].dot {
                 return false;
             }
 
@@ -521,7 +521,9 @@ pub fn generate_parsing_table<'a, T: Terminal, NT: NonTerminal>(
         }
     }
 
-    ParsingTable { table: parsing_table }
+    let table = ParsingTable { table: parsing_table };
+    table.dump(grammar);
+    table
 }
 
 pub trait InputToken<T: Terminal> {
