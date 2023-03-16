@@ -4,12 +4,7 @@ mod lr1;
 mod typst_generator;
 mod input;
 
-use std::collections::HashMap;
 use std::io::Write;
-
-use utils::*;
-use lr1::*;
-use typst_generator::*;
 use crate::input::typst_grammar;
 
 fn main() {

@@ -1,70 +1,70 @@
 rule Goal {
-    ExprLineP0,
+    ExprP0,
 }
 
 rule ParamList {
     "(" ")" { (_1, _2) => mk_node(A.param_list, args: ()) },
 }
 
-rule ExprLineP8 {
+rule ExprP8 {
     ident, int, float, string, bool, none,
-    "(" ExprLineP0 ")" { (_1, e, _2) => mk_node(A.paren, expr: e) },
+    "(" Expr ")" { (_1, e, _2) => mk_node(A.paren, expr: e) },
 }
 
-rule ExprLineP7 {
-    ExprLineP8,
-    "+" ExprLineP8 { (_, e) => mk_node(A.unary_plus, arg: e) },
-    "-" ExprLineP8 { (_, e) => mk_node(A.unary_minus, arg: e) },
-    ExprLineP8 "." ident { (l, _, r) => mk_node(A.member_access, lhs: l, rhs: r) },
-    ExprLineP8 ParamList { (f, args) => mk_node(A.call, func: f, args: args) },
+rule ExprP7 {
+    ExprP8,
+    "+" ExprP8 { (_, e) => mk_node(A.unary_plus, arg: e) },
+    "-" ExprP8 { (_, e) => mk_node(A.unary_minus, arg: e) },
+    ExprP8 "." ident { (l, _, r) => mk_node(A.member_access, lhs: l, rhs: r) },
+    ExprP8 ParamList { (f, args) => mk_node(A.call, func: f, args: args) },
 }
 
-rule ExprLineP6 {
-    ExprLineP7,
-    ExprLineP6 "*" ExprLineP7 { (l, _, r) => mk_node(A.binary_mul, lhs: l, rhs: r) },
-    ExprLineP6 "/" ExprLineP7 { (l, _, r) => mk_node(A.binary_div, lhs: l, rhs: r) },
+rule ExprP6 {
+    ExprP7,
+    ExprP6 "*" ExprP7 { (l, _, r) => mk_node(A.binary_mul, lhs: l, rhs: r) },
+    ExprP6 "/" ExprP7 { (l, _, r) => mk_node(A.binary_div, lhs: l, rhs: r) },
 }
 
-rule ExprLineP5 {
-    ExprLineP6,
-    ExprLineP5 "+" ExprLineP6 { (l, _, r) => mk_node(A.binary_add, lhs: l, rhs: r) },
-    ExprLineP5 "-" ExprLineP6 { (l, _, r) => mk_node(A.binary_sub, lhs: l, rhs: r) },
+rule ExprP5 {
+    ExprP6,
+    ExprP5 "+" ExprP6 { (l, _, r) => mk_node(A.binary_add, lhs: l, rhs: r) },
+    ExprP5 "-" ExprP6 { (l, _, r) => mk_node(A.binary_sub, lhs: l, rhs: r) },
 }
 
-rule ExprLineP4 {
-    ExprLineP5,
-    ExprLineP4 "==" ExprLineP5 { (l, _, r) => mk_node(A.binary_eq, lhs: l, rhs: r) },
-    ExprLineP4 "!=" ExprLineP5 { (l, _, r) => mk_node(A.binary_ne, lhs: l, rhs: r) },
-    ExprLineP4 "<" ExprLineP5 { (l, _, r) => mk_node(A.binary_lt, lhs: l, rhs: r) },
-    ExprLineP4 ">" ExprLineP5 { (l, _, r) => mk_node(A.binary_gt, lhs: l, rhs: r) },
-    ExprLineP4 "<=" ExprLineP5 { (l, _, r) => mk_node(A.binary_le, lhs: l, rhs: r) },
-    ExprLineP4 ">=" ExprLineP5 { (l, _, r) => mk_node(A.binary_ge, lhs: l, rhs: r) },
-    ExprLineP4 in ExprLineP5 { (l, _, r) => mk_node(A.binary_in, lhs: l, rhs: r) },
-    ExprLineP4 not in ExprLineP5 { (l, _1, _2, r) => mk_node(A.binary_not_in, lhs: l, rhs: r) },
+rule ExprP4 {
+    ExprP5,
+    ExprP4 "==" ExprP5 { (l, _, r) => mk_node(A.binary_eq, lhs: l, rhs: r) },
+    ExprP4 "!=" ExprP5 { (l, _, r) => mk_node(A.binary_ne, lhs: l, rhs: r) },
+    ExprP4 "<" ExprP5 { (l, _, r) => mk_node(A.binary_lt, lhs: l, rhs: r) },
+    ExprP4 ">" ExprP5 { (l, _, r) => mk_node(A.binary_gt, lhs: l, rhs: r) },
+    ExprP4 "<=" ExprP5 { (l, _, r) => mk_node(A.binary_le, lhs: l, rhs: r) },
+    ExprP4 ">=" ExprP5 { (l, _, r) => mk_node(A.binary_ge, lhs: l, rhs: r) },
+    ExprP4 in ExprP5 { (l, _, r) => mk_node(A.binary_in, lhs: l, rhs: r) },
+    ExprP4 not in ExprP5 { (l, _1, _2, r) => mk_node(A.binary_not_in, lhs: l, rhs: r) },
 }
 
-rule ExprLineP3 {
-    ExprLineP4,
-    not ExprLineP4 { (_, e) => mk_node(A.unary_not, arg: e) },
-    ExprLineP3 and ExprLineP4 { (l, _, r) => mk_node(A.binary_and, lhs: l, rhs: r) },
+rule ExprP3 {
+    ExprP4,
+    not ExprP4 { (_, e) => mk_node(A.unary_not, arg: e) },
+    ExprP3 and ExprP4 { (l, _, r) => mk_node(A.binary_and, lhs: l, rhs: r) },
 }
 
-rule ExprLineP2 {
-    ExprLineP3,
-    ExprLineP2 or ExprLineP3 { (l, _, r) => mk_node(A.binary_or, lhs: l, rhs: r) },
+rule ExprP2 {
+    ExprP3,
+    ExprP2 or ExprP3 { (l, _, r) => mk_node(A.binary_or, lhs: l, rhs: r) },
 }
 
-rule ExprLineP1 {
-    ExprLineP2,
-    ExprLineP8 "=" ExprLineP2 { (l, _, r) => mk_node(A.assign, lhs: l, rhs: r) },
-    ExprLineP8 "+=" ExprLineP2 { (l, _, r) => mk_node(A.add_assign, lhs: l, rhs: r) },
-    ExprLineP8 "-=" ExprLineP2 { (l, _, r) => mk_node(A.sub_assign, lhs: l, rhs: r) },
-    ExprLineP8 "*=" ExprLineP2 { (l, _, r) => mk_node(A.mul_assign, lhs: l, rhs: r) },
-    ExprLineP8 "/=" ExprLineP2 { (l, _, r) => mk_node(A.div_assign, lhs: l, rhs: r) },
+rule ExprP1 {
+    ExprP2,
+    ExprP8 "=" ExprP2 { (l, _, r) => mk_node(A.assign, lhs: l, rhs: r) },
+    ExprP8 "+=" ExprP2 { (l, _, r) => mk_node(A.add_assign, lhs: l, rhs: r) },
+    ExprP8 "-=" ExprP2 { (l, _, r) => mk_node(A.sub_assign, lhs: l, rhs: r) },
+    ExprP8 "*=" ExprP2 { (l, _, r) => mk_node(A.mul_assign, lhs: l, rhs: r) },
+    ExprP8 "/=" ExprP2 { (l, _, r) => mk_node(A.div_assign, lhs: l, rhs: r) },
 }
 
-rule ExprLineP0 {
-    ExprLineP1,
+rule Expr {
+    ExprP1,
 }
 
 rule eps {
@@ -151,7 +151,7 @@ cast comment_doc_outer(T.comment_doc_outer) {
     x => mk_node(A.comment_doc_outer, value: x.text)
 }
 
-cast comment_line(T.comment_line);
+cast comment_(T.comment_);
 cast comment_block(T.comment_block);
 
 cast unknown(T.unknown) {
