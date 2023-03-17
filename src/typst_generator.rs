@@ -143,7 +143,7 @@ pub fn generate_typst_parser<T: Terminal, NT: NonTerminal>(
     let stack = (0, )
     let ast_stack = ()
     let cur_token = 0
-    while true {{
+    for i in range(9999) {{ for j in range(9999) {{
         let state = stack.last()
         let terminal = if cur_token < tokens.len() {{
             token_mapping.at(tokens.at(cur_token).kind)
@@ -178,7 +178,8 @@ pub fn generate_typst_parser<T: Terminal, NT: NonTerminal>(
                 + " at: " + repr(cur_token)
             )
         }}
-    }}
+    }} }}
+    panic("too complex")
 }}"#
     )
 }

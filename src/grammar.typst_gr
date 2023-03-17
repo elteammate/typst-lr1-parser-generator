@@ -134,6 +134,7 @@ rule DictOrArrayOrParams {
 
 rule ExprP8 {
     ident, int, float, string, bool, none,
+    Suffixed,
     If, While, For,
     continue { _ => mk_node(A.continue_) },
     break { _ => mk_node(A.break_) },
@@ -200,6 +201,10 @@ rule Expr {
 
 rule eps {
     EPS { () => none },
+}
+
+rule Suffixed {
+    int ident { (x, s) => mk_node(A.suffixed, int: x, suffix: s) },
 }
 
 cast ident(T.ident) {
