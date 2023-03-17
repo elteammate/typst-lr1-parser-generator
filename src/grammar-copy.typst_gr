@@ -1,24 +1,50 @@
 rule Goal {
-    ExprLineP7,
+    Content,
 }
 
-rule ParamList {
-    "(" ")" { (_1, _2) => mk_node(A.param_list, args: ()) },
+rule Content {
+    EPS { () => mk_node(A.content, pieces: ()) },
+    Content ContentPiece { (l, r) => { l.fields.pieces.push(r); l } },
 }
 
-rule ExprLineP8 {
+rule ContentPiece {
+    unknown,
+    ContentBlock,
+    "#" Statement { (_1, e) => mk_node(A.hash_expr, expr: e.fields.expr) },
+}
+
+rule Statement {
+    ";" { _ => mk_node(A.stmt, expr: none) },
+    Expr ";" { (e, _) => mk_node(A.stmt, expr: e) },
+}
+
+rule Statements {
+    EPS { () => () },
+    Statements Statement { (l, r) => { if (r != none) { l.push(r) }; l } },
+}
+
+rule ContentBlock {
+    "[" Content "]" { (_1, content, _2) => mk_node(A.content_block, content: content) },
+}
+
+rule CodeBlock {
+    "{" Statements "}" { (_1, statements, _2) => mk_node(A.code_block, statements: statements) },
+}
+
+rule Block {
+    ContentBlock,
+    CodeBlock,
+}
+
+rule ExprP8 {
     ident,
-    "(" ExprLineP7 ")" { e => e },
+    Block,
 }
 
-rule ExprLineP7 {
-    ExprLineP8,
-    ExprLineP8 ParamList { (f, args) => mk_node(A.call, func: f, args: args) },
+rule Expr {
+    ExprP8,
 }
 
-rule eps {
-    EPS { () => none },
-}
 
 cast ident(T.ident) {
     x => mk_node(A.ident, name: x.text)
@@ -51,6 +77,7 @@ cast for(T.kw_for);
 cast while(T.kw_while);
 cast break(T.kw_break);
 cast continue(T.kw_continue);
+cast return(T.kw_return);
 cast include(T.kw_include);
 cast import(T.kw_import);
 cast from(T.kw_from);

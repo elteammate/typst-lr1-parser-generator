@@ -1,14 +1,140 @@
 rule Goal {
-    ExprP0,
+    Content,
 }
 
-rule ParamList {
-    "(" ")" { (_1, _2) => mk_node(A.param_list, args: ()) },
+rule Content {
+    EPS { () => mk_node(A.content, pieces: ()) },
+    Content ContentPiece { (l, r) => { l.fields.pieces.push(r); l } },
+}
+
+rule ContentPiece {
+    unknown,
+    ContentBlock,
+    "#" Statement { (_1, e) => mk_node(A.hash_expr, expr: e.fields.expr) },
+}
+
+rule Statement {
+    ";" { _ => mk_node(A.stmt, expr: none) },
+    Expr ";" { (e, _) => mk_node(A.stmt, expr: e) },
+    Let ";" { (e, _) => mk_node(A.stmt, expr: e) },
+    If ";" { (e, _) => mk_node(A.stmt, expr: e) },
+    While ";" { (e, _) => mk_node(A.stmt, expr: e) },
+    For ";" { (e, _) => mk_node(A.stmt, expr: e) },
+    continue ";" { (_1, _2) => mk_node(A.stmt, expr: mk_node(A.continue_)) },
+    break ";" { (_1, _2) => mk_node(A.stmt, expr: mk_node(A.break_)) },
+    return Expr ";" { (_1, e, _2) => mk_node(A.stmt, expr: mk_node(A.return_, expr: e)) },
+    return ";" { (_1, _2) => mk_node(A.stmt, expr: mk_node(A.return_, expr: none)) },
+    Import ";" { (e, _) => mk_node(A.stmt, expr: e) },
+}
+
+rule Statements {
+    EPS { () => () },
+    Statements Statement { (l, r) => { if (r != none) { l.push(r) }; l } },
+}
+
+rule ContentBlock {
+    "[" Content "]" { (_1, content, _2) => mk_node(A.content_block, content: content) },
+}
+
+rule CodeBlock {
+    "{" Statements "}" { (_1, statements, _2) => mk_node(A.code_block, statements: statements) },
+}
+
+rule Block {
+    ContentBlock,
+    CodeBlock,
+}
+
+rule Let {
+    let ident "=" ExprP2 { (_1, i, _2, e) => mk_node(A.let_, ident: i, expr: e, params: none) },
+    let ident call_glue DefParamList "=" ExprP2 { (_1, i, _2, p, _3, e) => mk_node(A.let_, ident: i, expr: e, params: p) },
+}
+
+rule If {
+    if Expr Block { (_, e, b) => mk_node(A.if_, expr: e, block: b, else_: none) },
+    if Expr Block else Block { (_1, e, b1, _2, b2) => mk_node(A.if_, expr: e, block: b1, else_: b2) },
+    if Expr Block else If { (_1, e, b1, _2, b2) => mk_node(A.if_, expr: e, block: b1, else_: b2) },
+}
+
+rule While {
+    while Expr Block { (_, e, b) => mk_node(A.while_, expr: e, block: b) },
+}
+
+rule For {
+    for ident in Expr Block { (_1, i, _2, e, b) => mk_node(A.for_, ident: i, expr: e, block: b, key: none) },
+    for ident "," ident in Expr Block { (_1, k, _, v, _2, e, b) => mk_node(A.for_, ident: k, expr: e, block: b, key: v) },
+}
+
+rule ImportItems {
+    "*" { _ => "*" },
+    ident { i => (i, ) },
+    ImportItems "," ident { (l, _, r) => { l.push(r); l } },
+}
+
+rule Import {
+    import string { (_, s) => mk_node(A.import_, path: s, items: none) },
+    import string ":" ImportItems { (_, s, _1, i) => mk_node(A.import_, path: s, items: i) },
+    import string ":" ImportItems "," { (_, s, _1, i, _2) => mk_node(A.import_, path: s, items: i) },
+}
+
+rule Include {
+    include string { (_, s) => mk_node(A.include_, path: s) },
+}
+
+rule Set {
+    set Expr { (_, e) => mk_node(A.set_, expr: e, if_: none) },
+    set Expr if Expr { (_, e, _1, c) => mk_node(A.set_, expr: e, if_: c) },
+}
+
+rule Show {
+    show Expr ":" Lambda { (_, e, _1, l) => mk_node(A.show_, expr: e, action: l) },
+    show Expr ":" Set { (_, e, _1, s) => mk_node(A.show_, expr: e, action: s) },
+}
+
+rule Lambda {
+    DefParamList "=>" Expr { (p, _1, e) => mk_node(A.lambda, params: p, expr: e) },
+    ident "=>" Expr { (i, _1, e) => mk_node(A.lambda, params: mk_node(A.param_list, args: (key: none, expr: i, sink: false), content: none), expr: e) },
+}
+
+rule CallParamList {
+    DictOrArrayOrParams { (p) => mk_node(A.call_param_list, args: fix_paren_call(p), content: none) },
+    DictOrArrayOrParams call_glue ContentBlock { (p, _, c) => mk_node(A.call_param_list, args: fix_paren_call(p), content: c) },
+    ContentBlock { (c) => mk_node(A.call_param_list, args: (), content: c) },
+}
+
+rule DefParamList {
+    DictOrArrayOrParams { (p) => mk_node(A.param_list, args: fix_paren_params(p), content: none) },
+}
+
+rule Sink {
+    ".." Expr { (_, e) => mk_node(A.sink, expr: e) },
+}
+
+rule DictOrArrayOrParamsItem {
+    Expr { (e) => (sink: false, key: none, value: e) },
+    Sink { (s) => (sink: true, key: none, value: s.fields.expr) },
+    ident ":" Expr { (k, _, v) => (sink: false, key: k, value: v) },
+    string ":" Expr { (k, _, v) => (sink: false, key: k, value: v) },
+}
+
+rule DictOrArrayOrParamsItems {
+    DictOrArrayOrParamsItem { (p) => (p, ) },
+    DictOrArrayOrParamsItems "," DictOrArrayOrParamsItem { (l, _, r) => { l.push(r); l } },
+}
+
+rule DictOrArrayOrParams {
+    "("  ")" { (_1, _2) => (elements: (), dict_flag: false, trailing_comma: false) },
+    "(" ":" ")" { (_1, _2, _3) => (elements: (), dict_flag: false, trailing_comma: false) },
+    "(" DictOrArrayOrParamsItems ")" { (_1, p, _2) => (elements: p, dict_flag: false, trailing_comma: false) },
+    "(" ":" DictOrArrayOrParamsItems ")" { (_1, _2, p, _3) => (elements: p, dict_flag: true, trailing_comma: false) },
+    "(" DictOrArrayOrParamsItems "," ")" { (_1, p, _2, _3) => (elements: p, dict_flag: false, trailing_comma: true) },
+    "(" ":" DictOrArrayOrParamsItems "," ")" { (_1, _2, p, _3, _4) => (elements: p, dict_flag: true, trailing_comma: true) },
 }
 
 rule ExprP8 {
     ident, int, float, string, bool, none,
-    "(" Expr ")" { (_1, e, _2) => mk_node(A.paren, expr: e) },
+    DictOrArrayOrParams { e => fix_paren_value(e) },
+    Block,
 }
 
 rule ExprP7 {
@@ -16,11 +142,11 @@ rule ExprP7 {
     "+" ExprP8 { (_, e) => mk_node(A.unary_plus, arg: e) },
     "-" ExprP8 { (_, e) => mk_node(A.unary_minus, arg: e) },
     ExprP8 "." ident { (l, _, r) => mk_node(A.member_access, lhs: l, rhs: r) },
-    ExprP8 ParamList { (f, args) => mk_node(A.call, func: f, args: args) },
+    ExprP8 call_glue CallParamList { (f, _, args) => mk_node(A.call, func: f, args: args) },
 }
 
 rule ExprP6 {
-    ExprP7,
+    ExprP7,AA
     ExprP6 "*" ExprP7 { (l, _, r) => mk_node(A.binary_mul, lhs: l, rhs: r) },
     ExprP6 "/" ExprP7 { (l, _, r) => mk_node(A.binary_div, lhs: l, rhs: r) },
 }
@@ -55,7 +181,7 @@ rule ExprP2 {
 }
 
 rule ExprP1 {
-    ExprP2,
+    ExprP2, Lambda,
     ExprP8 "=" ExprP2 { (l, _, r) => mk_node(A.assign, lhs: l, rhs: r) },
     ExprP8 "+=" ExprP2 { (l, _, r) => mk_node(A.add_assign, lhs: l, rhs: r) },
     ExprP8 "-=" ExprP2 { (l, _, r) => mk_node(A.sub_assign, lhs: l, rhs: r) },
@@ -102,6 +228,7 @@ cast for(T.kw_for);
 cast while(T.kw_while);
 cast break(T.kw_break);
 cast continue(T.kw_continue);
+cast return(T.kw_return);
 cast include(T.kw_include);
 cast import(T.kw_import);
 cast from(T.kw_from);
@@ -151,9 +278,11 @@ cast comment_doc_outer(T.comment_doc_outer) {
     x => mk_node(A.comment_doc_outer, value: x.text)
 }
 
-cast comment_(T.comment_);
+cast comment_line(T.comment_line);
 cast comment_block(T.comment_block);
 
 cast unknown(T.unknown) {
     x => mk_node(A.unknown, value: x.text)
 }
+
+cast call_glue(T.workaround_call_glue);

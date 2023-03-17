@@ -318,10 +318,12 @@ impl<'a, T: Terminal, NT: NonTerminal> ItemSet<'a, T, NT> {
         i == self.positions.len() && j == other.positions.len()
     }
 
-    fn merge_with(&mut self, other: &ItemSet<'a, T, NT>) {
+    fn merge_with(&mut self, other: &ItemSet<'a, T, NT>) -> bool {
+        let start_len = self.positions.len();
         self.positions.extend_from_slice(&other.positions);
         hash_dedup(&mut self.positions);
         self.positions.sort_by_key(|p| (p.rule.0 as *const GrammarRule<T, NT>, p.dot));
+        self.positions.len() != start_len
     }
 
     fn dump(&self, number: usize) {
@@ -440,8 +442,8 @@ pub fn generate_parsing_table<'a, T: Terminal, NT: NonTerminal>(
     let mut goto_cache: HashMap<(usize, GrammarToken<T, NT>), usize> = HashMap::new();
 
     {
-        let mut i = 0;
-        while i < item_sets.len() {
+        let item_set_queue = &mut vec![0];
+        while let Some(i) = item_set_queue.pop() {
             let item_set = item_sets[i].clone();
 
             let mut possible_transitions = item_set
@@ -453,28 +455,30 @@ pub fn generate_parsing_table<'a, T: Terminal, NT: NonTerminal>(
             hash_dedup(&mut possible_transitions);
 
             for transition in possible_transitions {
-                if goto_cache.contains_key(&(i, transition.clone())) {
-                    continue;
-                }
-
                 let goto_item_set = goto(&item_set, &grammar, &first_set, &transition);
 
                 let merge_with = item_sets.iter()
                     .position(|x| x.compare_lr0_cores(&goto_item_set));
 
                 if let Some(merge_with) = merge_with {
-                    item_sets[merge_with].merge_with(&goto_item_set);
+                    if item_sets[merge_with].merge_with(&goto_item_set) {
+                        item_set_queue.push(merge_with);
+                    }
+
                     goto_cache.insert((i, transition.clone()), merge_with);
                 } else {
                     goto_cache.insert((i, transition.clone()), item_sets.len());
+                    item_set_queue.push(item_sets.len());
                     item_sets.push(goto_item_set);
                 }
             }
 
-            item_sets[i].dump(i);
-
-            i += 1;
+            // item_sets[i].dump(i);
         }
+    }
+
+    for (i, item_set) in item_sets.iter().enumerate() {
+        item_set.dump(i);
     }
 
     let mut parsing_table = HashMap::<(usize, TokenOrEof<T, NT>), Action<'a, T, NT>>::new();

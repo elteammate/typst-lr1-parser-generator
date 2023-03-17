@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 use lalrpop_util;
 use lalrpop_util::lalrpop_mod;
-use crate::input::ast::Typst;
 use crate::lr1::*;
 use crate::typst_generator::{generate_typst_parser, TypstRule};
 use crate::utils::PureRef;
@@ -19,7 +18,12 @@ pub fn typst_grammar(input: &str) -> String {
     let raw_grammar = match grammar.clone() {
         Ok(term) => term,
         Err(lalrpop_util::ParseError::UnrecognizedToken { token: e, .. }) => {
-            println!("Token: {}`{}`{}", &input[..e.0], &input[e.0..e.2], &input[e.2..]);
+            let x = e.0;
+            println!("Token: {}`{}`{}", &input[x.checked_sub(100).unwrap_or(0)..x], &input[x..x + 1], &input[x + 1..x + 100]);
+            panic!("Unrecognized token: {:?}", grammar)
+        }
+        Err(lalrpop_util::ParseError::InvalidToken { location: x, .. }) => {
+            println!("Token: {}`{}`{}", &input[x.checked_sub(100).unwrap_or(0)..x], &input[x..x + 1], &input[x + 1..x + 100]);
             panic!("Unrecognized token: {:?}", grammar)
         }
         Err(e) => {

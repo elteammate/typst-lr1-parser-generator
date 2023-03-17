@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 ansi_term = "*"
 lalrpop-util = { version = "0.19.7", features = ["lexer"] }
+clipboard = "0.5.0"
 
 [build-dependencies]
 lalrpop = "0.19.7"
