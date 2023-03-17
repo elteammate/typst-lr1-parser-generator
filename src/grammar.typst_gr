@@ -25,6 +25,9 @@ rule Statement {
     return Expr ";" { (_1, e, _2) => mk_node(A.stmt, expr: mk_node(A.return_, expr: e)) },
     return ";" { (_1, _2) => mk_node(A.stmt, expr: mk_node(A.return_, expr: none)) },
     Import ";" { (e, _) => mk_node(A.stmt, expr: e) },
+    Include ";" { (e, _) => mk_node(A.stmt, expr: e) },
+    Show ";" { (e, _) => mk_node(A.stmt, expr: e) },
+    Set ";" { (e, _) => mk_node(A.stmt, expr: e) },
 }
 
 rule Statements {
@@ -146,7 +149,7 @@ rule ExprP7 {
 }
 
 rule ExprP6 {
-    ExprP7,AA
+    ExprP7,
     ExprP6 "*" ExprP7 { (l, _, r) => mk_node(A.binary_mul, lhs: l, rhs: r) },
     ExprP6 "/" ExprP7 { (l, _, r) => mk_node(A.binary_div, lhs: l, rhs: r) },
 }
