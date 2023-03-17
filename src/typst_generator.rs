@@ -174,7 +174,9 @@ pub fn generate_typst_parser<T: Terminal, NT: NonTerminal>(
             }}
         }} else {{
             panic("Parsing error at state: " + repr(stack) + " and token: " +
-                repr(if cur_token < tokens.len() {{ tokens.at(cur_token) }} else {{"EOF"}}))
+                repr(if cur_token < tokens.len() {{ tokens.at(cur_token) }} else {{"EOF"}})
+                + " at: " + repr(cur_token)
+            )
         }}
     }}
 }}"#

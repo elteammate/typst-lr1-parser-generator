@@ -16,18 +16,13 @@ rule ContentPiece {
 rule Statement {
     ";" { _ => mk_node(A.stmt, expr: none) },
     Expr ";" { (e, _) => mk_node(A.stmt, expr: e) },
-    Let ";" { (e, _) => mk_node(A.stmt, expr: e) },
-    If ";" { (e, _) => mk_node(A.stmt, expr: e) },
-    While ";" { (e, _) => mk_node(A.stmt, expr: e) },
-    For ";" { (e, _) => mk_node(A.stmt, expr: e) },
-    continue ";" { (_1, _2) => mk_node(A.stmt, expr: mk_node(A.continue_)) },
-    break ";" { (_1, _2) => mk_node(A.stmt, expr: mk_node(A.break_)) },
-    return Expr ";" { (_1, e, _2) => mk_node(A.stmt, expr: mk_node(A.return_, expr: e)) },
-    return ";" { (_1, _2) => mk_node(A.stmt, expr: mk_node(A.return_, expr: none)) },
-    Import ";" { (e, _) => mk_node(A.stmt, expr: e) },
-    Include ";" { (e, _) => mk_node(A.stmt, expr: e) },
-    Show ";" { (e, _) => mk_node(A.stmt, expr: e) },
-    Set ";" { (e, _) => mk_node(A.stmt, expr: e) },
+    Import ";" { (i, _) => mk_node(A.stmt, expr: i) },
+    return ";" { (_, _1) => mk_node(A.return_, expr: none) },
+    return ExprP1 ";" { (_1, e, _2) => mk_node(A.return_, expr: e) },
+    Include ";" { (i, _) => mk_node(A.stmt, expr: i) },
+    Show ";" { (s, _) => mk_node(A.stmt, expr: s) },
+    Set ";" { (s, _) => mk_node(A.stmt, expr: s) },
+    Let ";" { (l, _) => mk_node(A.stmt, expr: l) },
 }
 
 rule Statements {
@@ -50,7 +45,7 @@ rule Block {
 
 rule Let {
     let ident "=" ExprP2 { (_1, i, _2, e) => mk_node(A.let_, ident: i, expr: e, params: none) },
-    let ident call_glue DefParamList "=" ExprP2 { (_1, i, _2, p, _3, e) => mk_node(A.let_, ident: i, expr: e, params: p) },
+    let ident call_glue_parens DefParamList "=" ExprP2 { (_1, i, _2, p, _3, e) => mk_node(A.let_, ident: i, expr: e, params: p) },
 }
 
 rule If {
@@ -95,14 +90,17 @@ rule Show {
 }
 
 rule Lambda {
-    DefParamList "=>" Expr { (p, _1, e) => mk_node(A.lambda, params: p, expr: e) },
-    ident "=>" Expr { (i, _1, e) => mk_node(A.lambda, params: mk_node(A.param_list, args: (key: none, expr: i, sink: false), content: none), expr: e) },
+    DefParamList "=>" ExprP3 { (p, _1, e) => mk_node(A.lambda, params: p, expr: e) },
+    ident "=>" ExprP3 { (i, _1, e) => mk_node(A.lambda, params: mk_node(A.param_list, args: (key: none, expr: i, sink: false), content: none), expr: e) },
 }
 
 rule CallParamList {
-    DictOrArrayOrParams { (p) => mk_node(A.call_param_list, args: fix_paren_call(p), content: none) },
-    DictOrArrayOrParams call_glue ContentBlock { (p, _, c) => mk_node(A.call_param_list, args: fix_paren_call(p), content: c) },
-    ContentBlock { (c) => mk_node(A.call_param_list, args: (), content: c) },
+    call_glue_parens DictOrArrayOrParams {
+        (_, p) => mk_node(A.call_param_list, args: fix_paren_call(p), content: none)
+    },
+    call_glue_brackets ContentBlock {
+        (_, c) => mk_node(A.call_param_list, args: (), content: c)
+    },
 }
 
 rule DefParamList {
@@ -136,16 +134,19 @@ rule DictOrArrayOrParams {
 
 rule ExprP8 {
     ident, int, float, string, bool, none,
+    If, While, For,
+    continue { _ => mk_node(A.continue_) },
+    break { _ => mk_node(A.break_) },
     DictOrArrayOrParams { e => fix_paren_value(e) },
     Block,
+    ExprP8 "." ident { (l, _, r) => mk_node(A.member_access, lhs: l, rhs: r) },
+    ExprP8 CallParamList { (f, args) => mk_node(A.call, func: f, args: args) },
 }
 
 rule ExprP7 {
     ExprP8,
-    "+" ExprP8 { (_, e) => mk_node(A.unary_plus, arg: e) },
-    "-" ExprP8 { (_, e) => mk_node(A.unary_minus, arg: e) },
-    ExprP8 "." ident { (l, _, r) => mk_node(A.member_access, lhs: l, rhs: r) },
-    ExprP8 call_glue CallParamList { (f, _, args) => mk_node(A.call, func: f, args: args) },
+    "+" ExprP7 { (_, e) => mk_node(A.unary_plus, arg: e) },
+    "-" ExprP7 { (_, e) => mk_node(A.unary_minus, arg: e) },
 }
 
 rule ExprP6 {
@@ -180,11 +181,12 @@ rule ExprP3 {
 
 rule ExprP2 {
     ExprP3,
+    Lambda,
     ExprP2 or ExprP3 { (l, _, r) => mk_node(A.binary_or, lhs: l, rhs: r) },
 }
 
 rule ExprP1 {
-    ExprP2, Lambda,
+    ExprP2,
     ExprP8 "=" ExprP2 { (l, _, r) => mk_node(A.assign, lhs: l, rhs: r) },
     ExprP8 "+=" ExprP2 { (l, _, r) => mk_node(A.add_assign, lhs: l, rhs: r) },
     ExprP8 "-=" ExprP2 { (l, _, r) => mk_node(A.sub_assign, lhs: l, rhs: r) },
@@ -288,4 +290,5 @@ cast unknown(T.unknown) {
     x => mk_node(A.unknown, value: x.text)
 }
 
-cast call_glue(T.workaround_call_glue);
+cast call_glue_parens(T.workaround_call_glue_parens);
+cast call_glue_brackets(T.workaround_call_glue_brackets);

@@ -327,11 +327,21 @@ impl<'a, T: Terminal, NT: NonTerminal> ItemSet<'a, T, NT> {
     }
 
     fn dump(&self, number: usize) {
-        println!("| {}", Colour::Green.paint(format!("Item set {} begin", number)));
-        for position in &self.positions {
-            println!("| {}", position.to_colored_string());
+        print!("| {}", Colour::Green.paint(format!("Item set {} begin", number)));
+        for (i, position) in self.positions.iter().enumerate() {
+            if let Some(prev) = self.positions.get(i - 1) {
+                if prev.rule == position.rule && prev.dot == position.dot {
+                    print!("{} / ", colored_terminal_or_eof(&position.lookahead));
+                } else {
+                    println!();
+                    print!("| {}", position.to_colored_string());
+                }
+            } else {
+                println!();
+                print!("| {}", position.to_colored_string());
+            }
         }
-        println!("| {}\n", Colour::Green.paint(format!("Item set {} end", number)));
+        println!("\n| {}\n", Colour::Green.paint(format!("Item set {} end", number)));
     }
 }
 
